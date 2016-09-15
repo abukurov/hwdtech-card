@@ -1,14 +1,19 @@
 /* eslint-env node */
 
+const map = require('lodash/map');
 const path = require('path');
 const webpack = require('webpack');
 const autoprefixer = require('autoprefixer');
 const HtmlPlugin = require('html-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
-const profileConfig = require('./config');
 
 const devPort = 3000;
+const profileConfigs = require('require-all')({
+  dirname: __dirname + '/config',
+  filter: /(.+)\.js$/,
+  recursive: true
+});
 
 module.exports = {
 
@@ -41,7 +46,7 @@ module.exports = {
       loader: 'pug'
     }, {
       test: /\.scss$/,
-      loader: ExtractTextPlugin.extract('style-loader', 'css-loader!postcss-loader!sass-loader')
+      loader: ExtractTextPlugin.extract('style-loader', ['css', 'postcss', 'sass'])
     }, {
       test: /\.(jpe?g|png|gif|svg|ico)$/,
       loader: 'file',
@@ -56,30 +61,29 @@ module.exports = {
         limit: 5000,
         mimetype: 'application/font-woff'
       }
-    },
-      {
-        test: /\.ttf$|\.eot$/,
-        loader: 'file',
-        query: {
-          name: 'font/[hash].[ext]'
-        }
-      }]
+    }]
   },
 
   postcss: () => [autoprefixer],
 
   plugins: [
     new webpack.HotModuleReplacementPlugin(),
-    new CopyPlugin([ { from: 'assets/images/icons', to: 'images/icons' } ]),
+    new CopyPlugin([{
+      from: 'assets/images/icons',
+      to: 'images/icons'
+    }]),
     new webpack.optimize.OccurrenceOrderPlugin(),
     new webpack.optimize.DedupePlugin(),
-    new HtmlPlugin(Object.assign({
-      title: 'HWdTech Card',
-      filename: 'index.html',
-      favicon: 'assets/images/favicon.ico',
-      template: 'assets/templates/index.pug'
-    }, profileConfig)),
     new ExtractTextPlugin('bundle.css')
   ]
+    .concat(
+      map(profileConfigs, (config, username) => new HtmlPlugin(Object.assign({
+        title: 'HWdTech Card',
+        filename: `${username}.html`,
+        favicon: './assets/images/favicon.ico',
+        template: './assets/templates/index.pug'
+      }, config.profile)))
+    )
+
 };
 

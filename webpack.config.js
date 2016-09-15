@@ -1,5 +1,6 @@
 /* eslint-env node */
 
+const map = require('lodash/map');
 const path = require('path');
 const webpack = require('webpack');
 const autoprefixer = require('autoprefixer');
@@ -8,13 +9,17 @@ const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const OfflinePlugin = require('offline-plugin');
-const profileConfig = require('./config');
+
+const profileConfigs = require('require-all')({
+  dirname: __dirname + '/config',
+  filter: /(.+)\.js$/,
+  recursive: true
+});
 
 module.exports = {
+  entry: path.join(__dirname, 'assets', 'main.js'),
 
   devtool: 'source-map',
-
-  entry: path.join(__dirname, 'assets', 'main.js'),
 
   output: {
     path: 'dist',
@@ -32,7 +37,7 @@ module.exports = {
       loader: 'pug'
     }, {
       test: /\.scss$/,
-      loader: ExtractTextPlugin.extract('style-loader', 'css-loader!postcss-loader!sass-loader')
+      loader: ExtractTextPlugin.extract('style-loader', ['css?minimize', 'postcss', 'sass'])
     }, {
       test: /\.woff$/,
       loader: 'url',
@@ -46,12 +51,6 @@ module.exports = {
       loader: 'file',
       query: {
         name: 'images/[hash].[ext]'
-      }
-    }, {
-      test: /\.ttf$|\.eot$/,
-      loader: 'file',
-      query: {
-        name: 'font/[hash].[ext]'
       }
     }]
   },
@@ -67,35 +66,29 @@ module.exports = {
     new ExtractTextPlugin('bundle.css'),
     new webpack.optimize.OccurrenceOrderPlugin(),
     new webpack.optimize.DedupePlugin(),
-    new CopyPlugin([ { from: 'assets/images/icons', to: 'images/icons' } ]),
+    new CopyPlugin([{
+      from: 'assets/images/icons',
+      to: 'images/icons'
+    }]),
     new webpack.optimize.UglifyJsPlugin({
       screwIe8: true,
       compress: {
         warnings: false
       }
     }),
-    new HtmlPlugin(Object.assign({
-      title: 'HWdTech Card',
-      filename: 'index.html',
-      favicon: 'assets/images/favicon.ico',
-      template: 'assets/templates/index.pug'
-    }, profileConfig)),
     new CompressionPlugin({
       asset: '[path].gz[query]',
       algorithm: 'gzip',
       threshold: 10240
-    }),
-    new OfflinePlugin({
-      caches: {
-        main: ['index.html', 'bundle.*', 'manifest.json']
-      },
-      AppCache: null,
-      publicPath: '/hwdtech-card',
-      updateStrategy: 'all',
-      ServiceWorker: {
-        output: 'sw.js'
-      }
     })
   ]
+    .concat(
+      map(profileConfigs, (config, username) => new HtmlPlugin(Object.assign({
+        title: 'HWdTech Card',
+        filename: `${username}.html`,
+        favicon: 'assets/images/favicon.ico',
+        template: 'assets/templates/index.pug'
+      }, config.profile)))
+    )
 };
 
